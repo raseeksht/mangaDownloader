@@ -1,10 +1,10 @@
 import os
-from async_timeout import sys
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 from PIL import Image
 import time
+import threading
 
 tempImageDir = "temp_img"
 
@@ -92,13 +92,25 @@ def mangaClashSingleChapter(url):
     imgContainer = soup.find_all("div",{"class":"page-break"})
     imgListForPdf = []
     images = []
+    imgThreads = []
     for imgDiv in imgContainer:
         img = imgDiv.img
         imgUrl = img['data-src'].strip()
         imageName = imgUrl.split("/")[-1]
+        
         cmd = f"wget '{imgUrl}' -c -O '{tempImageDir}/{imageName}'"
-        os.system(cmd)
-        im = Image.open(f"{tempImageDir}/{imageName}")
+        thread = threading.Thread(target=downloadMedia,args=(cmd,))
+        imgThreads.append((thread,imageName))
+
+    
+    for thread in imgThreads:
+        thread[0].start()
+    
+    for thread in imgThreads:
+        thread[0].join()
+    
+    for thread in imgThreads:
+        im = Image.open(f"{tempImageDir}/{thread[1]}")
         im.convert('RGB')
         imgListForPdf.append(im)
     
@@ -106,6 +118,9 @@ def mangaClashSingleChapter(url):
     
     os.system(f"rm {tempImageDir} -rf")
     print("deleted temp image folder")
+
+def downloadMedia(cmd):
+    os.system(cmd)
 
 
 def mangaClashDownload(link):
