@@ -5,6 +5,8 @@ import urllib.parse
 from PIL import Image
 import time
 import threading
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 tempImageDir = "temp_img"
 
@@ -114,14 +116,47 @@ def mangaClashSingleChapter(url):
         im.convert('RGB')
         imgListForPdf.append(im)
     
-    imgListForPdf[0].save(f"./downloads/{folderName}.pdf",save_all=True,append_images=imgListForPdf[1:])
-    
+    try:
+        imgListForPdf[0].save(f"./downloads/{folderName}.pdf",save_all=True,append_images=imgListForPdf[1:])
+    except Exception as e:
+        print(e)
+
+        print(f'cannot save {folderName}')
+        from altpdfgen import generatePdf
+        obj = generatePdf(tempImageDir,f"./downloads/{folderName}.pdf")
+        obj.convert_to_pdf()
+
+        # exit()
     os.system(f"rm {tempImageDir} -rf")
     print("deleted temp image folder")
 
 def downloadMedia(cmd):
     os.system(cmd)
 
+def convert_to_pdf(image_paths, output_path):
+    c = canvas.Canvas(output_path, pagesize=letter)
+    width, height = letter
+
+    for image_path in image_paths:
+        img = Image.open(image_path)
+        # img = image_path
+        img_width, img_height = img.size
+        aspect_ratio = img_width / img_height
+
+        # Calculate the scaling factor to fit the image within the PDF page
+        if img_width > img_height:
+            img_width = width
+            img_height = img_width / aspect_ratio
+        else:
+            img_height = height
+            img_width = img_height * aspect_ratio
+
+        c.setPageSize((img_width, img_height))
+        c.drawImage(image_path, 0, 0, width=img_width, height=img_height)
+
+        c.showPage()
+
+    c.save()
 
 def mangaClashDownload(link):
     res = requests.get(link)
@@ -151,7 +186,8 @@ def mangaClashDownload(link):
         try:
             chapterUrl = liChaptersUrls[liChapters.index(chapterChoice)]
             mangaClashSingleChapter(chapterUrl)
-        except Exception:
+        except Exception as e:
+            print(e)
             print(f"Chapter {chapterChoice} is unavailable")
             print("list of available chapters\n",liChapters)
         
